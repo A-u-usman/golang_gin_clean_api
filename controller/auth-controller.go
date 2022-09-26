@@ -2,12 +2,16 @@ package controller
 
 import (
 	"net/http"
+	"strconv"
 
+	"github.com/A-u-usman/golang_gin_clean_api/dto"
+	"github.com/A-u-usman/golang_gin_clean_api/entity"
+	"github.com/A-u-usman/golang_gin_clean_api/helper"
+	"github.com/A-u-usman/golang_gin_clean_api/service"
 	"github.com/gin-gonic/gin"
 )
 
-//AuthController interface is a contract what this controller can do
-
+// AuthController interface is a contract what this controller can do
 type AuthController interface {
 	Login(ctx *gin.Context)
 	Register(ctx *gin.Context)
@@ -15,22 +19,55 @@ type AuthController interface {
 
 type authController struct {
 	//this is where you put your service
+	authService service.AuthService
+	jwtService  service.JWTService
 }
 
-func NewAuthController() AuthController {
-	return &authController{}
+// NewAuthController cretes a new instance of AuthController
+func NewAuthController(authService service.AuthService, jwtService service.JWTService) AuthController {
+	return &authController{
+		authService: authService,
+		jwtService:  jwtService,
+	}
 }
 
 func (c *authController) Login(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "hello login",
-	})
-
+	var loginDTO dto.LoginDTO
+	errDTO := ctx.ShouldBind(&loginDTO)
+	if errDTO != nil {
+		response := helper.BuildErrorResponse("Failed to process request", errDTO.Error(), helper.EmptyObj{})
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, response)
+		return
+	}
+	authResult := c.authService.VerifyCredential(loginDTO.Email, loginDTO.Password)
+	if v, ok := authResult.(entity.User); ok {
+		generatedToken := c.jwtService.GeneratedToken(strconv.FormatUint(v.ID, 10))
+		v.Token = generatedToken
+		response := helper.BuildResponse(true, "OK!", v)
+		ctx.JSON(http.StatusOK, response)
+		return
+	}
+	response := helper.BuildErrorResponse("Please check again your credential", "Invalid credential", helper.EmptyObj{})
+	ctx.AbortWithStatusJSON(http.StatusUnauthorized, response)
 }
 
 func (c *authController) Register(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "hello register",
-	})
+	var registerDTO dto.RegisterDTO
+	errDTO := ctx.ShouldBind(&registerDTO)
+	if errDTO != nil {
+		response := helper.BuildErrorResponse("Failed to process request", errDTO.Error(), helper.EmptyObj{})
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, response)
+		return
+	}
 
+	if !c.authService.IsDuplicateEmail(registerDTO.Email) {
+		response := helper.BuildErrorResponse("Failed to process request", "Duplicate email", helper.EmptyObj{})
+		ctx.JSON(http.StatusConflict, response)
+	} else {
+		createdUser := c.authService.CreateUser(registerDTO)
+		token := c.jwtService.GeneratedToken(strconv.FormatUint(createdUser.ID, 10))
+		createdUser.Token = token
+		response := helper.BuildResponse(true, "OK!", createdUser)
+		ctx.JSON(http.StatusCreated, response)
+	}
 }

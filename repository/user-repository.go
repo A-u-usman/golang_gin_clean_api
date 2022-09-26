@@ -35,7 +35,14 @@ func (db *userConnection) InsertUser(user entity.User) entity.User {
 }
 
 func (db *userConnection) UpdateUser(user entity.User) entity.User {
-	user.Password = hashAndSalt([]byte(user.Password))
+	if user.Password != "" {
+		user.Password = hashAndSalt([]byte(user.Password))
+	} else {
+		var tempUser entity.User
+		db.connection.Find(&tempUser, user.ID)
+		user.Password = tempUser.Password
+	}
+
 	db.connection.Save(&user)
 	return user
 }
@@ -62,7 +69,7 @@ func (db *userConnection) FindByEmail(email string) entity.User {
 
 func (db *userConnection) ProfileUser(userID string) entity.User {
 	var user entity.User
-	db.connection.Find(&user, userID)
+	db.connection.Preload("Books").Preload("Books.User").Find(&user, userID)
 	return user
 }
 
