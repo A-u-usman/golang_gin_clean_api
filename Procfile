@@ -1,1 +1,0 @@
-web: bin/golang_gin_clen_api
