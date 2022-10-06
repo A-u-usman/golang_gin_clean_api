@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os"
-
 	"github.com/A-u-usman/golang_gin_clean_api/config"
 	"github.com/A-u-usman/golang_gin_clean_api/controller"
 	"github.com/A-u-usman/golang_gin_clean_api/middleware"
@@ -49,6 +47,6 @@ func main() {
 		bookRoutes.PUT("/:id", bookController.Update)
 		bookRoutes.DELETE("/:id", bookController.Delete)
 	}
-	r.Run(os.Getenv("PORT")) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 
 }
